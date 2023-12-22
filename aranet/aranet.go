@@ -35,8 +35,8 @@ func New(context context.Context, id string, room string) *Aranet {
 	}
 }
 
-func (a *Aranet) RunUpdateLoop(verbose bool) {
-	ticker := time.NewTicker(10 * time.Second)
+func (a *Aranet) RunUpdateLoop(interval int, verbose bool) {
+	ticker := time.NewTicker(time.Duration(interval) * time.Second)
 	defer ticker.Stop()
 	log.Printf("Monitoring aranet %s as room=%s", a.id, a.room)
 

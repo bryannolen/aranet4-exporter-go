@@ -17,3 +17,5 @@ DEVICES=""
 # Extra flags to pass to aranet4-exporter. Examples:
 # (e.g. -homekit).
 FLAGS=""
+
+INTERVAL=60
