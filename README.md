@@ -20,19 +20,24 @@ the [releases](https://github.com/ryansouza/aranet4-exporter-go/releases).
 
 ## Setup
 
-These instructions assume you are on a system using systemd and bluetoothctl.
+These instructions assume you are on a system using systemd and `bluetoothctl`.
 
-1. Use bluetoothctl to pair with your Aranet4 device as follows:
+1. Use `bluetoothctl` to pair with your Aranet4 device as follows:
 
     ```shell
+    $ systemctl start hciuart  # or enable
     $ bluetoothctl
     > power on
+    > agent on
     > scan on
+    # find the MAC address of the Aranet4 device in the output:
+    # [NEW] Device DD:...:1F Aranet4 26D0F
     > scan off
-    # find the MAC address of the Aranet4 device in the output.
-    > pair XX:XX:..
+    > pair DD:...:1F
     # ... enter passcode shown on Aranet4 ...
-    > trust XX:XX:..
+    > trust DD:...:1F
+    > agent off
+    > quit
     ```
 
 2. If `bluetoothctl` is not installed, you may need to install it:
@@ -48,8 +53,8 @@ These instructions assume you are on a system using systemd and bluetoothctl.
 
 4. Run `systemctl restart aranet4-exporter`.
 
-5. Run `journalctl status aranet4-exporter` to get the port that the daemon was started on, and add the URL to your
-   Prometheus collector. Example: TODO(ryansouze)
+5. Run `systemctl status aranet4-exporter` to get the port that the daemon was started on, and add the URL to your
+   Prometheus collector.
 
 ## Releasing
 
