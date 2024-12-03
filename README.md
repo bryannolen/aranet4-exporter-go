@@ -72,10 +72,10 @@ $ git push origin v0.1.0
 Snapshot build:
 
 ```shell
-$ podman run --rm --privileged \
+$ podman run --clean --privileged \
     -v $PWD:/go/src/github.com/user/repo \
     -w /go/src/github.com/user/repo \
     -e GITHUB_TOKEN \
-    docker.io/goreleaser/goreleaser release --snapshot --rm-dist
+    docker.io/goreleaser/goreleaser release --snapshot --clean
 ```
 
