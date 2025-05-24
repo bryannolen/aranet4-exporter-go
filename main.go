@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -17,9 +16,9 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	hapLog "github.com/brutella/hap/log"
 	"github.com/ryansouza/aranet4-exporter/aranet"
 )
 
@@ -60,17 +59,13 @@ func isValidBluetoothMac(a string) bool {
 }
 
 var aranets []AranetConfig
-var homekit bool
 var listen string
 var verbose bool
-var stateDir string
 var interval int
 
 func init() {
 	flag.BoolVar(&verbose, "verbose", false, "verbose logging")
-	flag.StringVar(&listen, "listen", ":9963", "address to expose Prometheus metrics on")
-	flag.BoolVar(&homekit, "homekit", false, "enable HomeKit support")
-	flag.StringVar(&stateDir, "state", getDefaultStateDir(), "directory to store persistent state")
+	flag.StringVar(&listen, "listen", ":9302", "address to expose Prometheus metrics on")
 	flag.IntVar(&interval, "interval", 60, "interval for retrieving sensor readings")
 	flag.Func("device", "monitor an Aranet4 with format {ID} or {ID}={name}. may be specified multiple "+
 		"times. examples: -device D8:9B:67:AA:BB:CC=bedroom -device D8:9B:67:AA:BB:DD", parseAranet)
@@ -81,16 +76,6 @@ func init() {
 		fmt.Fprintf(os.Stderr, "Error: -device flag is required.\n\n")
 		printHelpAndExit()
 	}
-}
-
-// getDefaultStateDir returns a suitable default location for the state that may need to persist between runs of this
-// program.
-func getDefaultStateDir() string {
-	// STATE_DIRECTORY may be set by systemd.
-	if v, ok := os.LookupEnv("STATE_DIRECTORY"); ok {
-		return v
-	}
-	return "./"
 }
 
 func printHelpAndExit() {
@@ -109,10 +94,6 @@ func parseAranet(s string) error {
 	aranets = append(aranets, a)
 
 	return nil
-}
-
-func googleQRCode(uri string) string {
-	return "https://chart.googleapis.com/chart?cht=qr&chl=" + uri + "&chs=400x400"
 }
 
 func serveMetricsHTTP(shutdownContext context.Context, shutdownWait *sync.WaitGroup, reg *prometheus.Registry) {
@@ -139,18 +120,6 @@ func serveMetricsHTTP(shutdownContext context.Context, shutdownWait *sync.WaitGr
 	}()
 }
 
-func serveHomekitServer(shutdownContext context.Context, shutdownWait *sync.WaitGroup, bridge *aranet.Bridge) {
-	shutdownWait.Add(1)
-	go func() {
-		defer shutdownWait.Done()
-
-		log.Printf("Running homekit server with pin: %s\n", bridge.Pin)
-		log.Printf("Homekit setup QR code: %s\n", googleQRCode(bridge.SetupURI))
-		e := bridge.Serve(shutdownContext)
-		log.Printf("Stopped homekit server: %v\n", e)
-	}()
-}
-
 func main() {
 	shutdownContext, shutdown := context.WithCancel(context.Background())
 	shutdownWait := sync.WaitGroup{}
@@ -159,7 +128,6 @@ func main() {
 	seenNames := map[string]bool{}
 
 	collectedAranets := []aranet.AranetData{}
-	collectedAccessories := []*aranet.Accessory{}
 	for _, config := range aranets {
 		if _, found := seenIds[config.ID]; found {
 			fmt.Fprintf(os.Stderr, "Error: duplicate Bluetooth IDs are not allowed: %s\n", config.ID)
@@ -181,17 +149,9 @@ func main() {
 		}()
 
 		collectedAranets = append(collectedAranets, a)
-		collectedAccessories = append(collectedAccessories, a.Accessory())
 	}
 
 	aranetCollector := &aranet.Collector{Aranets: collectedAranets}
-
-	var bridge *aranet.Bridge
-	if homekit {
-		hapLog.Debug.Enable()
-		// TODO
-		bridge = aranet.NewBridge(filepath.Join(stateDir, "homekit"), "12344321", "RNDM", collectedAccessories...)
-	}
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -205,15 +165,11 @@ func main() {
 
 	reg := prometheus.NewPedanticRegistry()
 	reg.MustRegister(
-		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
-		prometheus.NewGoCollector(),
+		aranetCollector,
+		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 	)
-	reg.MustRegister(aranetCollector)
 
 	serveMetricsHTTP(shutdownContext, &shutdownWait, reg)
-	if bridge != nil {
-		serveHomekitServer(shutdownContext, &shutdownWait, bridge)
-	}
 
 	waitForShutdown(shutdownContext, &shutdownWait)
 }

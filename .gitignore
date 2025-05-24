@@ -1,5 +1,6 @@
 # built executable
 aranet4-exporter
+*.exe
 
 # default directory for homekit db
 db/

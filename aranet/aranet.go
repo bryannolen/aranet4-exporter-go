@@ -5,7 +5,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/brutella/hap/accessory"
 	"sbinet.org/x/aranet4"
 )
 
@@ -15,19 +14,15 @@ type AranetData interface {
 }
 
 type Aranet struct {
-	accessory *Accessory
 	id        string
 	room      string
 	context   context.Context
-	ticker    time.Ticker
 	retriever Retriever
 }
 
 func New(context context.Context, id string, room string) *Aranet {
 	retriever := Retriever{ID: id}
-	acc := NewAranetAccessory(accessory.Info{Name: "Aranet4"})
 	return &Aranet{
-		accessory: acc,
 		context:   context,
 		id:        id,
 		retriever: retriever,
@@ -38,7 +33,7 @@ func New(context context.Context, id string, room string) *Aranet {
 func (a *Aranet) RunUpdateLoop(interval int, verbose bool) {
 	ticker := time.NewTicker(time.Duration(interval) * time.Second)
 	defer ticker.Stop()
-	log.Printf("Monitoring aranet %s as room=%s", a.id, a.room)
+	log.Printf("Monitoring aranet %s as room=%s. First read in %d seconds", a.id, a.room, interval)
 
 	data := a.retriever.Read()
 
@@ -66,7 +61,6 @@ func (a *Aranet) RunUpdateLoop(interval int, verbose bool) {
 				log.Printf("got: %#v\n", data)
 			}
 
-			a.accessory.Update(data)
 		case <-a.context.Done():
 			log.Println("Stopped updating loop")
 			return
@@ -80,8 +74,4 @@ func (a *Aranet) Read() aranet4.Data {
 
 func (a *Aranet) Room() string {
 	return a.room
-}
-
-func (a *Aranet) Accessory() *Accessory {
-	return a.accessory
 }

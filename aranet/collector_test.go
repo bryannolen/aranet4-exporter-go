@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/expfmt"
-	"github.com/sergi/go-diff/diffmatchpatch"
 	"sbinet.org/x/aranet4"
 )
 
@@ -98,9 +98,6 @@ aranet4_temperature_c{room="two"} 42.42
 	got := out.String()
 
 	if got != expected {
-		dmp := diffmatchpatch.New()
-		diffs := dmp.DiffMain(expected, got, false)
-
-		t.Fatalf("collector output did not match:\n%s", dmp.DiffPrettyText(diffs))
+		t.Fatalf("collector output did not match:\n%s", cmp.Diff(expected, got))
 	}
 }
